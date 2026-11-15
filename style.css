@@ -7,8 +7,7 @@ canvas { display: block; }
 }
 
 .top-bar {
-    display: flex; gap: 20px; background: rgba(28, 37, 65, 0.85); padding: 15px 30px; border-radius: 8px; border: 1px solid #5bc0be; width: fit-content; box-shadow: 0 0 20px rgba(91, 192, 190, 0.2); pointer-events: auto;
-    flex-wrap: wrap;
+    display: flex; gap: 20px; background: rgba(28, 37, 65, 0.85); padding: 15px 30px; border-radius: 8px; border: 1px solid #5bc0be; width: fit-content; box-shadow: 0 0 20px rgba(91, 192, 190, 0.2); pointer-events: auto; flex-wrap: wrap;
 }
 .stat { color: white; font-weight: bold; font-size: 18px; display: flex; align-items: center; gap: 10px; }
 .bar-bg { width: 100px; height: 10px; background: #333; border-radius: 5px; overflow: hidden; }
