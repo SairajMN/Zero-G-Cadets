@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beyond Earth - 3D Survival</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- FASTER 3D ENGINE LINK -->
+    <script type="importmap">
+      { "imports": { "three": "https://esm.sh/three@0.160.0" } }
+    </script>
+</head>
+<body>
+
+    <div id="damage-flash"></div>
+
+    <div id="warning-overlay">
+        <p class="warning-sub">SOLAR FLARE INBOUND!</p>
+        <p id="countdown-text">5</p>
+        <p class="warning-sub">RUN TO SHIELD!</p>
+    </div>
+
+    <div id="ui-layer">
+        <div class="top-bar">
+            <div class="stat">POWER <div class="bar-bg"><div class="bar" id="power-bar"></div></div> <span id="power-val">100%</span></div>
+            <div class="stat">OXYGEN <div class="bar-bg"><div class="bar" id="oxygen-bar"></div></div> <span id="oxygen-val">100%</span></div>
+            <div class="stat">HEALTH <div class="bar-bg"><div class="bar" id="health-bar"></div></div> <span id="health-val">100%</span></div>
+            <div class="stat" style="color: #ffd700; margin-left: 20px;">MISSION TIME: <span id="time-val">90</span>s</div>
+        </div>
+
+        <div id="log-box">
+            <h3>MISSION LOG</h3>
+            <div id="log-content"></div>
+        </div>
+        <div id="interact-prompt">Press E to Interact</div>
+    </div>
+
+    <div id="alert-screen">
+        <div class="alert-box">
+            <h1>⚠️ SOLAR FLARE IMPACT</h1>
+            <p>NASA's DONKI database indicates a Coronal Mass Ejection.</p>
+            <p><span>Astronaut Health (OSDR Data):</span> Unshielded exposure to this radiation increases long-term cancer risk.</p>
+            <button class="btn-action" onclick="closeAlert()">Acknowledge & Act</button>
+        </div>
+    </div>
+
+    <div id="end-screen">
+        <h1 id="end-title">MISSION FAILED</h1>
+        <p id="end-desc"></p>
+        <button class="restart-btn" onclick="location.reload()">Try Again</button>
+    </div>
+
+    <script type="module" src="game.js"></script>
+</body>
+</html>
