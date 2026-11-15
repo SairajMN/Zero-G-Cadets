@@ -2,8 +2,7 @@
 
 **Team:** Zero-G Cadets  
 **Challenge:** Build a Junior Astronaut Mission Trainer (NASA Space Apps Challenge 2026)  
-**Live Playable Link:** [Insert your GitHub Pages link here]
-
+**Live Playable Link:** https://engr-aimanafzal.github.io/Zero-G-Cadets/
 ## 📖 Project Overview
 "Beyond Earth" is a 3D browser-based survival game designed for kids aged 7-12. Players control a Junior Astronaut on a lunar outpost and must manage limited resources (Power, Oxygen, and Health) to survive. The game teaches real engineering trade-offs: turning on the Oxygen Recycler drains Power, and activating Radiation Shields drains Power even faster. No choice is free.
 
