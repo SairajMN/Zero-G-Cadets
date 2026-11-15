@@ -1,92 +1,69 @@
 import * as THREE from 'three';
 
-// --- 1. SETUP ---
-const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x000000, 0.015);
+// --- 1. REAL NASA API INTEGRATION ---
+const NASA_API_KEY = "wctbQfFFHCNq8Cqd8qR6jMBJ9rMqJbLNgTQQLFp6"; // <--- PASTE YOUR KEY HERE
+let realFlareData = null;
 
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-document.body.appendChild(renderer.domElement);
+async function fetchNASAData() {
+    const loadingText = document.getElementById('loading-text');
+    const apiStatus = document.getElementById('api-status');
+    const flareDataText = document.getElementById('real-flare-data');
 
-const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
-scene.add(ambientLight);
-const dirLight = new THREE.DirectionalLight(0xffffff, 2);
-dirLight.position.set(10, 20, 10);
-dirLight.castShadow = true;
-scene.add(dirLight);
+    try {
+        loadingText.innerText = "Contacting NASA DONKI Servers...";
 
-const starsGeo = new THREE.BufferGeometry();
-const starsPos = new Float32Array(3000 * 3);
-for(let i=0; i<starsPos.length; i++) starsPos[i] = (Math.random() - 0.5) * 300;
-starsGeo.setAttribute('position', new THREE.BufferAttribute(starsPos, 3));
-scene.add(new THREE.Points(starsGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.5 })));
+        // NEW URL: Uses the updated CCMC server and requests last 30 days
+        const today = new Date().toISOString().split('T')[0];
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const url = `https://ccmc.gsfc.nasa.gov/DONKI-API/get/FLR?startDate=${thirtyDaysAgo}&endDate=${today}`;
 
-const groundGeo = new THREE.PlaneGeometry(100, 100, 64, 64);
-const positions = groundGeo.attributes.position.array;
-for (let i = 0; i < positions.length; i += 3) positions[i+2] = Math.random() * 0.3;
-groundGeo.computeVertexNormals();
-const ground = new THREE.Mesh(groundGeo, new THREE.MeshStandardMaterial({ color: 0x222233, roughness: 1, flatShading: true }));
-ground.rotation.x = -Math.PI / 2;
-ground.receiveShadow = true;
-scene.add(ground);
+        const flareResponse = await fetch(url);
+        
+        if (!flareResponse.ok) {
+            throw new Error(`HTTP Error: ${flareResponse.status}`);
+        }
 
-function createLabel(text, color) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 256; canvas.height = 64;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; ctx.fillRect(0, 0, 256, 64);
-    ctx.strokeStyle = '#' + color.toString(16).padStart(6, '0'); ctx.lineWidth = 4; ctx.strokeRect(0, 0, 256, 64);
-    ctx.font = 'bold 24px Courier New'; ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(text, 128, 32);
-    const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.SpriteMaterial({ map: texture, depthTest: false });
-    const sprite = new THREE.Sprite(material);
-    sprite.scale.set(4, 1, 1);
-    return sprite;
+        const flareData = await flareResponse.json();
+        
+        apiStatus.innerText = "CONNECTED (DONKI)";
+        apiStatus.style.color = "#00ff00";
+
+        if (flareData && flareData.length > 0) {
+            realFlareData = flareData[0]; 
+            const date = new Date(realFlareData.beginTime).toLocaleDateString();
+            flareDataText.innerText = `Real Flare: Class ${realFlareData.classType || '?'} on ${date}`;
+        } else {
+            flareDataText.innerText = "No recent flares in last 30 days.";
+        }
+
+        loadingText.innerText = "Data Received. Starting Game...";
+
+        setTimeout(() => {
+            document.getElementById('loading-screen').style.display = 'none';
+            initGame();
+        }, 1500);
+
+    } catch (error) {
+        console.error("NASA API Error:", error);
+        apiStatus.innerText = "API FAILED";
+        apiStatus.style.color = "#ff4d4d";
+        loadingText.innerText = `Error: ${error.message}. Starting fallback...`;
+        
+        setTimeout(() => {
+            document.getElementById('loading-screen').style.display = 'none';
+            initGame();
+        }, 3000);
+    }
 }
 
-const modules = [
-    { x: -12, z: 12, color: 0x43aa8b, name: "O2 RECYCLER", active: false, mesh: null },
-    { x: 0, z: -12, color: 0xf9c74f, name: "SOLAR ARRAY", active: true, mesh: null },
-    { x: 12, z: 0, color: 0x5bc0be, name: "SHIELD EAST", active: false, mesh: null },
-    { x: -12, z: 0, color: 0x5bc0be, name: "SHIELD WEST", active: false, mesh: null },
-    { x: 0, z: 12, color: 0x5bc0be, name: "SHIELD SOUTH", active: false, mesh: null },
-    { x: 0, z: -24, color: 0x5bc0be, name: "SHIELD NORTH", active: false, mesh: null }
-];
+fetchNASAData();
 
-modules.forEach(m => {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 3), new THREE.MeshStandardMaterial({ color: m.color }));
-    mesh.position.set(m.x, 1.5, m.z);
-    mesh.castShadow = true; mesh.receiveShadow = true;
-    scene.add(mesh); m.mesh = mesh;
 
-    const light = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), new THREE.MeshBasicMaterial({ color: m.color }));
-    light.position.set(m.x, 3.2, m.z); scene.add(light);
-
-    const label = createLabel(m.name, m.color);
-    label.position.set(m.x, 4.5, m.z); scene.add(label);
-});
-
-const shieldDome = new THREE.Mesh(new THREE.SphereGeometry(22, 32, 32), new THREE.MeshBasicMaterial({ color: 0x5bc0be, transparent: true, opacity: 0.1, wireframe: true }));
-shieldDome.visible = false; scene.add(shieldDome);
-
-const player = new THREE.Group();
-const suitMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.5 });
-const visorMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 1, roughness: 0 });
-const packMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.8 });
-
-const torso = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1, 0.5), suitMat); torso.position.y = 1.8; torso.castShadow = true; player.add(torso);
-const pack = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.3), packMat); pack.position.set(0, 1.8, -0.4); pack.castShadow = true; player.add(pack);
-const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16), suitMat); helmet.position.y = 2.5; helmet.castShadow = true; player.add(helmet);
-const visor = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), visorMat); visor.position.set(0, 2.5, 0.2); visor.scale.set(1, 0.7, 0.5); player.add(visor);
-const leftArm = new THREE.Mesh(new THREE.CapsuleGeometry(0.15, 0.6, 4, 8), suitMat); leftArm.position.set(-0.55, 1.8, 0); leftArm.castShadow = true; player.add(leftArm);
-const rightArm = new THREE.Mesh(new THREE.CapsuleGeometry(0.15, 0.6, 4, 8), suitMat); rightArm.position.set(0.55, 1.8, 0); rightArm.castShadow = true; player.add(rightArm);
-const leftLeg = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 0.7, 4, 8), suitMat); leftLeg.position.set(-0.25, 0.9, 0); leftLeg.castShadow = true; player.add(leftLeg);
-const rightLeg = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 0.7, 4, 8), suitMat); rightLeg.position.set(0.25, 0.9, 0); rightLeg.castShadow = true; player.add(rightLeg);
-
-player.position.set(0, 0, 5); scene.add(player);
+// --- 2. GAME CODE ---
+let scene, camera, renderer, player, shieldDome;
+let modules = [], meteors = [], crates = [];
+let isMoving = false, walkCycle = 0;
+let leftArm, rightArm, leftLeg, rightLeg;
 
 let state = {
     power: 100, oxygen: 100, health: 100,
@@ -96,17 +73,113 @@ let state = {
     warningActive: false, countdown: 0
 };
 
-let meteors = [];
-let crates = [];
-let isMoving = false;
-let walkCycle = 0;
+function initGame() {
+    scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x000000, 0.015);
 
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
+    scene.add(ambientLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 2);
+    dirLight.position.set(10, 20, 10);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    const starsGeo = new THREE.BufferGeometry();
+    const starsPos = new Float32Array(3000 * 3);
+    for(let i=0; i<starsPos.length; i++) starsPos[i] = (Math.random() - 0.5) * 300;
+    starsGeo.setAttribute('position', new THREE.BufferAttribute(starsPos, 3));
+    scene.add(new THREE.Points(starsGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.5 })));
+
+    const groundGeo = new THREE.PlaneGeometry(100, 100, 64, 64);
+    const positions = groundGeo.attributes.position.array;
+    for (let i = 0; i < positions.length; i += 3) positions[i+2] = Math.random() * 0.3;
+    groundGeo.computeVertexNormals();
+    const ground = new THREE.Mesh(groundGeo, new THREE.MeshStandardMaterial({ color: 0x222233, roughness: 1, flatShading: true }));
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    function createLabel(text, color) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256; canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; ctx.fillRect(0, 0, 256, 64);
+        ctx.strokeStyle = '#' + color.toString(16).padStart(6, '0'); ctx.lineWidth = 4; ctx.strokeRect(0, 0, 256, 64);
+        ctx.font = 'bold 24px Courier New'; ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(text, 128, 32);
+        const texture = new THREE.CanvasTexture(canvas);
+        const material = new THREE.SpriteMaterial({ map: texture, depthTest: false });
+        const sprite = new THREE.Sprite(material);
+        sprite.scale.set(4, 1, 1);
+        return sprite;
+    }
+
+    const modData = [
+        { x: -12, z: 12, color: 0x43aa8b, name: "O2 RECYCLER", active: false },
+        { x: 0, z: -12, color: 0xf9c74f, name: "SOLAR ARRAY", active: true },
+        { x: 12, z: 0, color: 0x5bc0be, name: "SHIELD EAST", active: false },
+        { x: -12, z: 0, color: 0x5bc0be, name: "SHIELD WEST", active: false },
+        { x: 0, z: 12, color: 0x5bc0be, name: "SHIELD SOUTH", active: false },
+        { x: 0, z: -24, color: 0x5bc0be, name: "SHIELD NORTH", active: false }
+    ];
+
+    modData.forEach(m => {
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 3), new THREE.MeshStandardMaterial({ color: m.color }));
+        mesh.position.set(m.x, 1.5, m.z);
+        mesh.castShadow = true; mesh.receiveShadow = true;
+        scene.add(mesh); 
+        m.mesh = mesh;
+        modules.push(m);
+
+        const light = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), new THREE.MeshBasicMaterial({ color: m.color }));
+        light.position.set(m.x, 3.2, m.z); scene.add(light);
+
+        const label = createLabel(m.name, m.color);
+        label.position.set(m.x, 4.5, m.z); scene.add(label);
+    });
+
+    shieldDome = new THREE.Mesh(new THREE.SphereGeometry(22, 32, 32), new THREE.MeshBasicMaterial({ color: 0x5bc0be, transparent: true, opacity: 0.1, wireframe: true }));
+    shieldDome.visible = false; scene.add(shieldDome);
+
+    player = new THREE.Group();
+    const suitMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.5 });
+    const visorMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 1, roughness: 0 });
+    const packMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.8 });
+
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1, 0.5), suitMat); torso.position.y = 1.8; torso.castShadow = true; player.add(torso);
+    const pack = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.3), packMat); pack.position.set(0, 1.8, -0.4); pack.castShadow = true; player.add(pack);
+    const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16), suitMat); helmet.position.y = 2.5; helmet.castShadow = true; player.add(helmet);
+    const visor = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), visorMat); visor.position.set(0, 2.5, 0.2); visor.scale.set(1, 0.7, 0.5); player.add(visor);
+    leftArm = new THREE.Mesh(new THREE.CapsuleGeometry(0.15, 0.6, 4, 8), suitMat); leftArm.position.set(-0.55, 1.8, 0); leftArm.castShadow = true; player.add(leftArm);
+    rightArm = new THREE.Mesh(new THREE.CapsuleGeometry(0.15, 0.6, 4, 8), suitMat); rightArm.position.set(0.55, 1.8, 0); rightArm.castShadow = true; player.add(rightArm);
+    leftLeg = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 0.7, 4, 8), suitMat); leftLeg.position.set(-0.25, 0.9, 0); leftLeg.castShadow = true; player.add(leftLeg);
+    rightLeg = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 0.7, 4, 8), suitMat); rightLeg.position.set(0.25, 0.9, 0); rightLeg.castShadow = true; player.add(rightLeg);
+
+    player.position.set(0, 0, 5); scene.add(player);
+
+    setupInputs();
+    setInterval(gameTick, 1000);
+    animate();
+    
+    addLog("System Online. NASA Data Loaded.");
+}
+
+// --- 3. INPUT & LOGIC ---
 const keys = {};
-window.addEventListener('keydown', e => keys[e.code] = true);
-window.addEventListener('keyup', e => keys[e.code] = false);
+function setupInputs() {
+    window.addEventListener('keydown', e => keys[e.code] = true);
+    window.addEventListener('keyup', e => keys[e.code] = false);
+}
 
 function addLog(msg, isAlert=false) {
     const logDiv = document.getElementById('log-content');
+    if(!logDiv) return;
     const p = document.createElement('div');
     p.className = 'log-entry';
     if(isAlert) p.style.color = '#ff4d4d';
@@ -153,8 +226,8 @@ function spawnCrate() {
     crates.push({ mesh, type: isHealth ? 'health' : 'oxygen' });
 }
 
-setInterval(() => {
-    if (state.isGameOver) return;
+function gameTick() {
+    if (state.isGameOver || !scene) return;
 
     if (state.warningActive) {
         state.countdown--;
@@ -162,6 +235,13 @@ setInterval(() => {
         if (state.countdown <= 0) {
             state.warningActive = false;
             document.getElementById('warning-overlay').style.display = 'none';
+            
+            let alertDesc = "NASA's DONKI database indicates a Coronal Mass Ejection.";
+            if (realFlareData) {
+                alertDesc = `NASA DONKI LIVE DATA: A real solar flare (Class ${realFlareData.classType}) was recorded on ${new Date(realFlareData.beginTime).toLocaleDateString()}.`;
+            }
+            document.getElementById('alert-desc').innerText = alertDesc;
+
             state.isPaused = true;
             document.getElementById('alert-screen').style.display = 'flex';
             addLog("⚠️ SOLAR FLARE IMPACT!", true);
@@ -202,7 +282,7 @@ setInterval(() => {
     if (state.oxygen <= 0 || state.health <= 0) endGame(false);
     
     updateUI();
-}, 1000);
+}
 
 function endGame(isWin) {
     state.isGameOver = true;
@@ -216,24 +296,22 @@ function endGame(isWin) {
         title.style.color = "#00ff00";
         desc.innerHTML = `
             <strong>Mission Report:</strong><br>
-            You successfully managed the lunar outpost for 90 seconds.<br><br>
+            You successfully managed the lunar outpost.<br><br>
             <strong>Science Score:</strong> ${score}<br>
-            <em>(Score calculated based on remaining Power, Oxygen, and Health)</em><br><br>
             <em>NASA Data Sources Used:</em><br>
-            • <strong>DONKI:</strong> Simulated realistic solar flare events.<br>
+            • <strong>DONKI API:</strong> Live solar flare data.<br>
             • <strong>OSDR:</strong> Modeled crew radiation exposure.<br>
         `;
     } else {
         title.innerText = "MISSION FAILED";
         title.style.color = "#ff4d4d";
-        desc.innerText = "The crew was lost. You ran out of critical resources. Try again to find the right balance!";
+        desc.innerText = "The crew was lost. You ran out of critical resources.";
     }
 }
 
-let time = 0;
 function animate() {
     requestAnimationFrame(animate);
-    time += 0.1;
+    if (!scene) return;
     
     if (!state.isPaused && !state.isGameOver) {
         let dx = 0, dz = 0;
@@ -328,16 +406,14 @@ function animate() {
         camera.lookAt(player.position.x, 0, player.position.z);
     }
 
-    if (shieldDome.visible) shieldDome.rotation.y += 0.02;
+    if (shieldDome && shieldDome.visible) shieldDome.rotation.y += 0.02;
     renderer.render(scene, camera);
 }
 
 window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    if (camera && renderer) {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
 });
-
-addLog("System Online. Survive 90 seconds.");
-updateUI();
-animate();
